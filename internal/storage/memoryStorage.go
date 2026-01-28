@@ -19,8 +19,6 @@ func DeleteIPState(ip string) {
 	delete(ipStorage, ip)
 }
 
-
-
 var tokenStorage = make(map[string]*models.TokenState)
 
 func GetTokenState(token string) (*models.TokenState, bool) {

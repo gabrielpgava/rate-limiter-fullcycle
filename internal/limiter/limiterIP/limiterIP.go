@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/gabrielpgava/rate-limiter-fullcycle/internal/models"
@@ -39,7 +40,15 @@ func CheckIPLimit(ip string) (bool, error) {
 		return true, nil
 	}
 
-	if getIPState.Count >= 5 {
+	maxRequestsStr := os.Getenv("max_request_ip_per_second")
+	maxRequests := 5
+	if maxRequestsStr != "" {
+		if v, err := strconv.Atoi(maxRequestsStr); err == nil {
+			maxRequests = v
+		}
+	}
+
+	if getIPState.Count >= maxRequests {
 		if !getIPState.BannedUntil.IsZero() && time.Now().Before(getIPState.BannedUntil) {
 			return false, errors.New("IP blocked due to too many requests")
 		}

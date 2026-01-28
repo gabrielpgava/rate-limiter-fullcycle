@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/gabrielpgava/rate-limiter-fullcycle/internal/models"
@@ -44,7 +45,15 @@ func CheckTokenLimit(token string) (bool, error) {
 		return true, nil
 	}
 
-	if getTokenState.Count >= 5 {
+	maxRequestsStr := os.Getenv("max_request_token_per_second")
+	maxRequests := 5
+	if maxRequestsStr != "" {
+		if v, err := strconv.Atoi(maxRequestsStr); err == nil {
+			maxRequests = v
+		}
+	}
+
+	if getTokenState.Count >= maxRequests {
 		if !getTokenState.BannedUntil.IsZero() && time.Now().Before(getTokenState.BannedUntil) {
 			return false, errors.New("Token blocked due to too many requests")
 		}

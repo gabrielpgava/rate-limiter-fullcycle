@@ -15,9 +15,11 @@ import (
 
 func main() {
 
-	storageProvider := strings.ToLower(os.Getenv("STORAGE_PROVIDER"))
+	storageProvider := strings.ToLower(envOr("STORAGE_PROVIDER", "redis"))
 	switch storageProvider {
-	case "redis":
+	case "memory":
+		storage.Use(storage.NewMemoryProvider())
+	default:
 		addr := envOr("REDIS_ADDR", "localhost:6379")
 		password := os.Getenv("REDIS_PASSWORD")
 		rdb := redis.NewClient(&redis.Options{
@@ -26,8 +28,6 @@ func main() {
 			DB:       0,
 		})
 		storage.Use(storage.NewRedisProvider(rdb))
-	default:
-		storage.Use(storage.NewMemoryProvider())
 	}
 
 	r := chi.NewRouter()

@@ -7,6 +7,45 @@ services:
     networks:
       - rate_limiter_network
     restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: "rate_limiter_app"
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      STORAGE_PROVIDER: redis
+      REDIS_ADDR: redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - rate_limiter_network
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  loadtest:
+    image: "ghcr.io/hatoo/oha:latest"
+    profiles: ["loadtest"]
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - rate_limiter_network
+    command: ["-z", "10s", "-c", "20", "http://app:8080/"]
 
 networks:
   rate_limiter_network:

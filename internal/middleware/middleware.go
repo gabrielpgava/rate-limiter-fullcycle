@@ -15,27 +15,26 @@ func RateLimiterMiddle(next http.Handler) http.Handler {
 		token := r.Header.Get("API_KEY")
 		ip, _, _ := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
 
-		if(token == ""){
+		if token == "" {
 			checkedIP, err := limiterIP.CheckIPLimit(ip)
-				if err != nil {
-					http.Error(w, "you have reached the maximum number of requests or actions allowed within a certain time frame", http.StatusTooManyRequests)
-					return
-				}
+			if err != nil {
+				http.Error(w, "you have reached the maximum number of requests or actions allowed within a certain time frame", http.StatusTooManyRequests)
+				return
+			}
 			fmt.Println("IP:", checkedIP)
 		}
 
-
-		if(token != ""){
+		if token != "" {
 			checkToken, err := limiterToken.CheckTokenLimit(token)
-				if err != nil {
-					if(err.Error() == "IsInvalid"){
-						http.Error(w, "Invalid API Key Token", http.StatusUnauthorized)
-						return
-					}
-
-					http.Error(w, "you have reached the maximum number of requests or actions allowed within a certain time frame", http.StatusTooManyRequests)
+			if err != nil {
+				if err.Error() == "IsInvalid" {
+					http.Error(w, "Invalid API Key Token", http.StatusUnauthorized)
 					return
 				}
+
+				http.Error(w, "you have reached the maximum number of requests or actions allowed within a certain time frame", http.StatusTooManyRequests)
+				return
+			}
 
 			fmt.Println("Token:", checkToken)
 		}
@@ -43,5 +42,4 @@ func RateLimiterMiddle(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 
-		
 }

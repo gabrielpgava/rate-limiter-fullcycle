@@ -22,7 +22,7 @@ func CheckTokenLimit(token string) (bool, error) {
 	if !exists {
 		newState := &models.TokenState{
 			Count:       1,
-			WindowStart: time.Now(),
+			WindowStart: now(),
 			BannedUntil: time.Time{},
 		}
 		storage.SetTokenState(token, newState)
@@ -35,11 +35,24 @@ func CheckTokenLimit(token string) (bool, error) {
 		getTokenState.WindowStart,
 		getTokenState.BannedUntil)
 
-	if !getTokenState.BannedUntil.IsZero() && time.Now().After(getTokenState.BannedUntil) {
+	if !getTokenState.BannedUntil.IsZero() {
+		if now().Before(getTokenState.BannedUntil) {
+			return false, errors.New("Token blocked due to too many requests")
+		}
 		storage.SetTokenState(token,
 			&models.TokenState{
 				Count:       1,
-				WindowStart: time.Now(),
+				WindowStart: now(),
+				BannedUntil: time.Time{},
+			})
+		return true, nil
+	}
+
+	if now().Sub(getTokenState.WindowStart) >= time.Second {
+		storage.SetTokenState(token,
+			&models.TokenState{
+				Count:       1,
+				WindowStart: now(),
 				BannedUntil: time.Time{},
 			})
 		return true, nil
@@ -54,11 +67,10 @@ func CheckTokenLimit(token string) (bool, error) {
 	}
 
 	if getTokenState.Count >= maxRequests {
-		if !getTokenState.BannedUntil.IsZero() && time.Now().Before(getTokenState.BannedUntil) {
-			return false, errors.New("Token blocked due to too many requests")
-		}
-
 		duration := os.Getenv("timeout_token_block_inSeconds")
+		if duration == "" {
+			duration = "10"
+		}
 		seconds, err := time.ParseDuration(duration + "s")
 		if err != nil {
 			fmt.Println("Error parsing duration:", err)
@@ -67,7 +79,7 @@ func CheckTokenLimit(token string) (bool, error) {
 			&models.TokenState{
 				Count:       getTokenState.Count,
 				WindowStart: getTokenState.WindowStart,
-				BannedUntil: time.Now().Add(seconds),
+				BannedUntil: now().Add(seconds),
 			})
 		return false, errors.New("Token blocked due to too many requests")
 
@@ -82,6 +94,8 @@ func CheckTokenLimit(token string) (bool, error) {
 
 	return true, nil
 }
+
+var now = time.Now
 
 func CheckTokenisValid(token string) bool {
 	apiKey := os.Getenv("API_KEY")

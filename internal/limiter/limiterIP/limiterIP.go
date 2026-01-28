@@ -17,7 +17,7 @@ func CheckIPLimit(ip string) (bool, error) {
 	if !exists {
 		newState := &models.IPstate{
 			Count:       1,
-			WindowStart: time.Now(),
+			WindowStart: now(),
 			BannedUntil: time.Time{},
 		}
 		storage.SetIPState(ip, newState)
@@ -30,11 +30,24 @@ func CheckIPLimit(ip string) (bool, error) {
 		getIPState.WindowStart,
 		getIPState.BannedUntil)
 
-	if !getIPState.BannedUntil.IsZero() && time.Now().After(getIPState.BannedUntil) {
+	if !getIPState.BannedUntil.IsZero() {
+		if now().Before(getIPState.BannedUntil) {
+			return false, errors.New("IP blocked due to too many requests")
+		}
 		storage.SetIPState(ip,
 			&models.IPstate{
 				Count:       1,
-				WindowStart: time.Now(),
+				WindowStart: now(),
+				BannedUntil: time.Time{},
+			})
+		return true, nil
+	}
+
+	if now().Sub(getIPState.WindowStart) >= time.Second {
+		storage.SetIPState(ip,
+			&models.IPstate{
+				Count:       1,
+				WindowStart: now(),
 				BannedUntil: time.Time{},
 			})
 		return true, nil
@@ -49,10 +62,10 @@ func CheckIPLimit(ip string) (bool, error) {
 	}
 
 	if getIPState.Count >= maxRequests {
-		if !getIPState.BannedUntil.IsZero() && time.Now().Before(getIPState.BannedUntil) {
-			return false, errors.New("IP blocked due to too many requests")
-		}
 		duration := os.Getenv("timeout_ip_block_inSeconds")
+		if duration == "" {
+			duration = "10"
+		}
 		seconds, err := time.ParseDuration(duration + "s")
 		if err != nil {
 			fmt.Println("Error parsing duration:", err)
@@ -61,7 +74,7 @@ func CheckIPLimit(ip string) (bool, error) {
 			&models.IPstate{
 				Count:       getIPState.Count,
 				WindowStart: getIPState.WindowStart,
-				BannedUntil: time.Now().Add(seconds),
+				BannedUntil: now().Add(seconds),
 			})
 		return false, errors.New("IP blocked due to too many requests")
 	}
@@ -75,3 +88,5 @@ func CheckIPLimit(ip string) (bool, error) {
 
 	return true, nil
 }
+
+var now = time.Now

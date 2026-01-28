@@ -10,10 +10,6 @@ import (
 	"github.com/gabrielpgava/rate-limiter-fullcycle/internal/storage"
 )
 
-
-
-
-
 func CheckIPLimit(ip string) (bool, error) {
 
 	getIPState, exists := storage.GetIPState(ip)
@@ -33,36 +29,34 @@ func CheckIPLimit(ip string) (bool, error) {
 		getIPState.WindowStart,
 		getIPState.BannedUntil)
 
-
-	if(!getIPState.BannedUntil.IsZero() && time.Now().After(getIPState.BannedUntil)){
+	if !getIPState.BannedUntil.IsZero() && time.Now().After(getIPState.BannedUntil) {
 		storage.SetIPState(ip,
 			&models.IPstate{
 				Count:       1,
 				WindowStart: time.Now(),
 				BannedUntil: time.Time{},
 			})
-			return true, nil
+		return true, nil
 	}
 
-	if(getIPState.Count >= 5 && getIPState.BannedUntil.IsZero()){
-
-		       duration := os.Getenv("timeout_ip_block_inSeconds")
-		       seconds, err := time.ParseDuration(duration + "s")
-		       if err != nil {
-			       return false, errors.New("invalid timeout_ip_block_inSeconds value")
-		       }
-		       storage.SetIPState(ip,
-			       &models.IPstate{
-				       Count:       getIPState.Count,
-				       WindowStart: getIPState.WindowStart,
-				       BannedUntil: time.Now().Add(seconds),
-			       })
-		       return false,  errors.New("IP blocked due to too many requests")
-	
+	if getIPState.Count >= 5 {
+		if !getIPState.BannedUntil.IsZero() && time.Now().Before(getIPState.BannedUntil) {
+			return false, errors.New("IP blocked due to too many requests")
+		}
+		duration := os.Getenv("timeout_ip_block_inSeconds")
+		seconds, err := time.ParseDuration(duration + "s")
+		if err != nil {
+			fmt.Println("Error parsing duration:", err)
+		}
+		storage.SetIPState(ip,
+			&models.IPstate{
+				Count:       getIPState.Count,
+				WindowStart: getIPState.WindowStart,
+				BannedUntil: time.Now().Add(seconds),
+			})
+		return false, errors.New("IP blocked due to too many requests")
 	}
 
-
-	
 	storage.SetIPState(ip,
 		&models.IPstate{
 			Count:       getIPState.Count + 1,
@@ -70,9 +64,5 @@ func CheckIPLimit(ip string) (bool, error) {
 			BannedUntil: getIPState.BannedUntil,
 		})
 
-	
-
-
 	return true, nil
 }
-

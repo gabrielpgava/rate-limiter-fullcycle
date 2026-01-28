@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net/http"
 
 	middlewares "github.com/gabrielpgava/rate-limiter-fullcycle/internal/middleware"
@@ -18,7 +17,8 @@ func main() {
 	r.Use(middlewares.RateLimiterMiddle)
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "Hello, World!")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Your request has arrived successfully!"))
 	})
 
 	http.ListenAndServe(":8080", r)

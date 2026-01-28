@@ -6,7 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	limiterIP "github.com/gabrielpgava/rate-limiter-fullcycle/internal/limiter"
+	"github.com/gabrielpgava/rate-limiter-fullcycle/internal/limiter/limiterIP"
+	"github.com/gabrielpgava/rate-limiter-fullcycle/internal/limiter/limiterToken"
 )
 
 func RateLimiterMiddle(next http.Handler) http.Handler {
@@ -14,21 +15,33 @@ func RateLimiterMiddle(next http.Handler) http.Handler {
 		token := r.Header.Get("API_KEY")
 		ip, _, _ := net.SplitHostPort(strings.TrimSpace(r.RemoteAddr))
 
-		checkedIP, err := limiterIP.CheckIPLimit(ip)
-		if err != nil {
-			http.Error(w, "you have reached the maximum number of requests or actions allowed within a certain time frame", http.StatusTooManyRequests)
-			return
+		if(token == ""){
+			checkedIP, err := limiterIP.CheckIPLimit(ip)
+				if err != nil {
+					http.Error(w, "you have reached the maximum number of requests or actions allowed within a certain time frame", http.StatusTooManyRequests)
+					return
+				}
+			fmt.Println("IP:", checkedIP)
 		}
 
-		fmt.Println("IP:", checkedIP, "Token:", token)
 
+		if(token != ""){
+			checkToken, err := limiterToken.CheckTokenLimit(token)
+				if err != nil {
+					if(err.Error() == "IsInvalid"){
+						http.Error(w, "Invalid API Key Token", http.StatusUnauthorized)
+						return
+					}
 
+					http.Error(w, "you have reached the maximum number of requests or actions allowed within a certain time frame", http.StatusTooManyRequests)
+					return
+				}
 
-
-		if(token !=""){
-			fmt.Fprintln(w, "Hello, World!")
+			fmt.Println("Token:", checkToken)
 		}
-		
 
+		next.ServeHTTP(w, r)
 	})
+
+		
 }
